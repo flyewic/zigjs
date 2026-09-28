@@ -4,31 +4,38 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
-        .name = "zigjs",
-        .root_source_file = .{ .src_path = .{
-            .owner = b,
-            .sub_path = "src/main.zig",
-        } },
+    const exe_mod = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
+    });
+    exe_mod.addIncludePath(b.path("quickjs"));
+    exe_mod.addCSourceFiles(.{
+        .root = b.path("quickjs"),
+        .files = &.{
+            "cutils.c",
+            "libbf.c",
+            "libregexp.c",
+            "libunicode.c",
+            "quickjs.c",
+            "quickjs-libc.c",
+        },
+        .flags = &.{
+            "-D_GNU_SOURCE",
+            "-DCONFIG_BIGNUM",
+            "-DCONFIG_VERSION=\"2024-01-13\"",
+            "-U_FORTIFY_SOURCE",
+            "-D_FORTIFY_SOURCE=0",
+            "-w",
+        },
     });
 
-    exe.addIncludePath(.{ .src_path = .{
-        .owner = b,
-        .sub_path = "quickjs",
-    } });
-    exe.addLibraryPath(.{ .src_path = .{
-        .owner = b,
-        .sub_path = "quickjs",
-    } });
-    exe.linkSystemLibrary("quickjs");
-    exe.linkLibC();
-
-    exe.addLibraryPath(.{ .src_path = .{
-        .owner = b,
-        .sub_path = "quickjs-libc.c",
-    } });
+    const exe = b.addExecutable(.{
+        .name = "zigjs",
+        .root_module = exe_mod,
+        .use_llvm = true,
+    });
 
     b.installArtifact(exe);
 
